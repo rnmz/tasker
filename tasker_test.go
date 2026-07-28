@@ -76,8 +76,6 @@ func TestOperation_Complete_Failure(t *testing.T) {
 	}
 }
 
-// complete должен быть идемпотентным: повторный вызов не должен паниковать
-// (из-за повторного close на уже закрытом канале) и не должен менять состояние.
 func TestOperation_Complete_Idempotent(t *testing.T) {
 	op := newOperation("id")
 
@@ -147,7 +145,7 @@ func TestOperation_Wait_CompletesNormally(t *testing.T) {
 }
 
 func TestOperation_Wait_ContextCancelled(t *testing.T) {
-	op := newOperation("id") // никогда не завершится
+	op := newOperation("id")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
@@ -383,7 +381,6 @@ func TestRun_MultipleConcurrentOperations(t *testing.T) {
 	}
 }
 
-// Проверяем, что по истечении TTL операция удаляется из карты Manager.
 func TestManager_ScheduleCleanup_RemovesOperationAfterTTL(t *testing.T) {
 	ttl := 30 * time.Millisecond
 	m := NewManager(ttl)
@@ -397,16 +394,14 @@ func TestManager_ScheduleCleanup_RemovesOperationAfterTTL(t *testing.T) {
 	defer cancel()
 	op.Wait(ctx)
 
-	// Сразу после завершения операция ещё должна быть доступна.
 	if _, ok := m.Get(op.ID); !ok {
 		t.Fatal("operation should still be present right after completion")
 	}
 
-	// Ждём дольше, чем TTL, и проверяем, что она была удалена.
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, ok := m.Get(op.ID); !ok {
-			return // успех
+			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -414,7 +409,6 @@ func TestManager_ScheduleCleanup_RemovesOperationAfterTTL(t *testing.T) {
 	t.Fatal("operation was not cleaned up after TTL elapsed")
 }
 
-// Операция не должна удаляться до истечения TTL.
 func TestManager_ScheduleCleanup_KeepsOperationBeforeTTL(t *testing.T) {
 	ttl := 300 * time.Millisecond
 	m := NewManager(ttl)
@@ -441,7 +435,6 @@ func TestManager_Get_ConcurrentWithCreate(t *testing.T) {
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 
-	// Постоянно читаем, пока пишем.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
