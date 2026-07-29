@@ -53,10 +53,12 @@ func (o *Operation) Snapshot() (status Status, result any, errMsg string) {
 	return o.status, o.result, o.errMsg
 }
 
-func (o *Operation) Wait(ctx context.Context) {
+func (o *Operation) Wait(ctx context.Context) error {
 	select {
 	case <-o.done:
+		return nil
 	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
@@ -93,22 +95,21 @@ func (m *Manager) Get(id string) (*Operation, bool) {
 
 func Run[T any](m *Manager, op *Operation, fn func() (T, error)) {
 	go func() {
+		defer m.scheduleCleanup(op.ID)
+
 		defer func() {
 			if r := recover(); r != nil {
 				op.complete(StatusFailed, nil, fmt.Sprintf("panic recovered: %v", r))
-				m.scheduleCleanup(op.ID)
 			}
 		}()
 
 		result, err := fn()
 		if err != nil {
 			op.complete(StatusFailed, nil, err.Error())
-			m.scheduleCleanup(op.ID)
 			return
 		}
 
 		op.complete(StatusCompleted, result, "")
-		m.scheduleCleanup(op.ID)
 	}()
 }
 

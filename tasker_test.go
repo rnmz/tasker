@@ -104,7 +104,7 @@ func TestOperation_Complete_ConcurrentIsSafe(t *testing.T) {
 	op := newOperation("id")
 
 	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -199,7 +199,7 @@ func TestManager_Create_GeneratesUniqueIDs(t *testing.T) {
 	m := NewManager(time.Minute)
 
 	seen := make(map[string]struct{})
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		op := m.Create()
 		if _, dup := seen[op.ID]; dup {
 			t.Fatalf("duplicate ID generated: %s", op.ID)
@@ -215,7 +215,7 @@ func TestManager_Create_Concurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	ids := make([]string, n)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -342,7 +342,7 @@ func TestRun_MultipleConcurrentOperations(t *testing.T) {
 	const n = 20
 	ops := make([]*Operation, n)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		op := m.Create()
 		ops[i] = op
 
@@ -435,9 +435,7 @@ func TestManager_Get_ConcurrentWithCreate(t *testing.T) {
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-stop:
@@ -446,9 +444,9 @@ func TestManager_Get_ConcurrentWithCreate(t *testing.T) {
 				m.Get("whatever")
 			}
 		}
-	}()
+	})
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		m.Create()
 	}
 	close(stop)
